@@ -1,0 +1,46 @@
+name: CleanSYS 30분 자동 실측 수집
+
+on:
+  schedule:
+    - cron: '12,42 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: cleansys-data-collect
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 저장소 체크아웃
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Python 환경 설정
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: CleanSYS 실측 데이터 수집 및 누적 저장
+        env:
+          CLEANSYS_API_KEY: ${{ secrets.CLEANSYS_API_KEY }}
+        run: python scripts/fetch_cleansys.py
+
+      - name: 누적 데이터 자동 커밋 및 푸시
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/
+          if git diff --staged --quiet; then
+            echo "변경된 실측 데이터가 없어 커밋을 생략합니다."
+          else
+            TZ='Asia/Seoul' NOW=$(date +'%Y-%m-%d %H:%M KST')
+            git commit -m "data: CleanSYS 실측 누적 업데이트 (${NOW})"
+            git pull --rebase origin "${GITHUB_REF_NAME}" || true
+            git push origin HEAD:"${GITHUB_REF_NAME}"
+          fi

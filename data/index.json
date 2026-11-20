@@ -1,7 +1,9 @@
 {
-  "lastRunKst": null,
-  "lastMatchedStacks": 0,
+  "lastRunKst": "2026-11-20 17:34:35",
+  "lastMatchedStacks": 17,
   "totalTargetStacks": 19,
-  "latestDate": null,
-  "availableDates": []
+  "latestDate": "2026-11-20",
+  "availableDates": [
+    "2026-11-20"
+  ]
 }

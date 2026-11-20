@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>인천 CleanSYS 굴뚝 TMS 질소산화물(NOx) 및 실측 가동시간 대시보드</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: #ffffff;
+            color: #0f172a;
+        }
+        .mono {
+            font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+            font-variant-numeric: tabular-nums;
+        }
+        .cleansys-grid-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        .cleansys-grid-table td {
+            border: 1px solid #cbd5e1;
+            padding: 6px 8px;
+            text-align: center;
+        }
+        .cleansys-grid-table td.time-cell {
+            background-color: #f8fafc;
+            color: #64748b;
+            font-weight: 600;
+            width: 10%;
+        }
+        .cleansys-grid-table td.val-cell {
+            background-color: #ffffff;
+            color: #0f172a;
+            font-weight: 700;
+            width: 10%;
+        }
+        .cleansys-grid-table td.latest-cell {
+            background-color: #ecfdf5;
+            color: #047857;
+            font-weight: 800;
+        }
+        .cleansys-grid-table td.zero-cell {
+            background-color: #fef2f2;
+            color: #b91c1c;
+            font-weight: 700;
+        }
+        .cleansys-grid-table td.empty-cell {
+            background-color: #ffffff;
+            color: #cbd5e1;
+            font-weight: 400;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col bg-white text-slate-900">
+
+    <!-- 상단 헤더 -->
+    <header class="bg-white border-b border-slate-200 px-6 py-4 sticky top-0 z-30">
+        <div class="max-w-[1650px] mx-auto flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-sky-50 border border-sky-200 flex items-center justify-center text-sky-600">
+                    <i class="fa-solid fa-smog text-lg"></i>
+                </div>
+                <div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <h1 class="text-base sm:text-lg font-extrabold text-slate-900 tracking-tight">
+                            인천 CleanSYS TMS 질소산화물(NOx) 및 실측 가동시간 대시보드
+                        </h1>
+                        <span id="syncBadge" class="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-sky-50 text-sky-700 border border-sky-200 mono">
+                            데이터 로딩 중...
+                        </span>
+                    </div>
+                    <p class="text-xs text-slate-500 mt-0.5">
+                        GitHub Actions 30분 자동 누적 · 매일 00:00~23:30 (48슬롯) 실측 기록 공용 조회
+                    </p>
+                </div>
+            </div>
+
+            <!-- 날짜 컨트롤 및 도구 -->
+            <div class="flex flex-wrap items-center gap-2">
+                <div class="inline-flex items-center bg-slate-50 border border-slate-300 rounded-lg overflow-hidden">
+                    <button id="prevDateBtn" onclick="shiftDate(-1)" class="px-2.5 py-1.5 text-slate-600 hover:bg-slate-200 transition text-xs font-bold" title="이전 날짜">
+                        <i class="fa-solid fa-chevron-left"></i>
+                    </button>
+                    <input type="date" id="datePicker" onchange="onDatePickerChange()" class="bg-transparent px-2.5 py-1.5 text-xs font-bold text-slate-800 mono focus:outline-none cursor-pointer">
+                    <button id="nextDateBtn" onclick="shiftDate(1)" class="px-2.5 py-1.5 text-slate-600 hover:bg-slate-200 transition text-xs font-bold" title="다음 날짜">
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+                </div>
+
+                <button onclick="goLatestDate()" class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 text-xs font-bold transition">
+                    최신일
+                </button>
+
+                <button onclick="downloadSelectedCsv()" class="px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-bold transition">
+                    <i class="fa-solid fa-file-csv mr-1"></i>CSV 저장
+                </button>
+
+                <button onclick="refreshAll()" class="px-3.5 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold flex items-center gap-1.5 transition shadow-sm">
+                    <i id="refreshIcon" class="fa-solid fa-rotate"></i> 새로고침
+                </button>
+            </div>
+        </div>
+
+        <!-- 저장된 과거 날짜 빠른 선택 바 -->
+        <div class="max-w-[1650px] mx-auto mt-3 pt-2.5 border-t border-slate-100 flex flex-wrap items-center gap-2 text-xs">
+            <span class="text-slate-500 font-semibold whitespace-nowrap">
+                <i class="fa-regular fa-calendar-check text-sky-600 mr-1"></i>저장된 실측 날짜:
+            </span>
+            <div id="savedDatesBar" class="flex flex-wrap items-center gap-1.5">
+                <span class="text-slate-400">조회 중...</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- 메인 컨텐츠 -->
+    <main class="max-w-[1650px] w-full mx-auto px-6 py-6 flex-1 flex flex-col gap-5">
+
+        <!-- 초기 안내 배너 (데이터 미수집 시 표시) -->
+        <div id="emptyStateBanner" class="hidden bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-900">
+            <div class="font-bold flex items-center gap-2">
+                <i class="fa-solid fa-circle-info text-amber-600"></i>
+                <span id="emptyStateTitle">아직 누적된 실측 데이터 파일이 없습니다.</span>
+            </div>
+            <p id="emptyStateDesc" class="text-xs text-amber-800 mt-1">
+                GitHub 저장소의 <strong>Actions → CleanSYS 30분 자동 실측 수집 → Run workflow</strong>를 한 번 실행하면 몇 초 뒤부터 실측 데이터가 자동 누적되어 표시됩니다.
+            </p>
+        </div>
+
+        <!-- KPI 요약 카드 -->
+        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                <div class="text-xs font-semibold text-slate-500">조회일 / 수신 완료 배출구</div>
+                <div class="mt-1.5 flex items-baseline justify-between">
+                    <span id="kpiMatched" class="text-2xl font-extrabold text-slate-900 mono">0 / 19</span>
+                    <span id="kpiDateLabel" class="text-xs font-bold text-sky-600 mono">-</span>
+                </div>
+            </div>
+
+            <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                <div class="text-xs font-semibold text-slate-500">배출구 최신 실측 NOx 평균</div>
+                <div class="mt-1.5 flex items-baseline gap-1.5">
+                    <span id="kpiAvgLatestNox" class="text-2xl font-extrabold text-amber-600 mono">0.00</span>
+                    <span class="text-xs text-slate-500 mono">ppm</span>
+                </div>
+            </div>
+
+            <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                <div class="text-xs font-semibold text-slate-500">해당일 전체 시계열 평균 NOx</div>
+                <div class="mt-1.5 flex items-baseline gap-1.5">
+                    <span id="kpiAvgDayNox" class="text-2xl font-extrabold text-sky-600 mono">0.00</span>
+                    <span class="text-xs text-slate-500 mono">ppm</span>
+                </div>
+            </div>
+
+            <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                <div class="text-xs font-semibold text-slate-500">배출구 평균 실측 가동시간 (NOx &gt; 0)</div>
+                <div class="mt-1.5 flex items-baseline justify-between">
+                    <div>
+                        <span id="kpiAvgHours" class="text-2xl font-extrabold text-emerald-600 mono">0.0</span>
+                        <span class="text-xs text-slate-500 mono ml-1">h / 24.0h</span>
+                    </div>
+                    <span id="kpiLastUpdated" class="text-[11px] text-slate-400 mono">-</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- 사업장 필터 바 -->
+        <section class="flex flex-wrap items-center justify-between gap-3">
+            <div id="corpFilterBar" class="flex flex-wrap items-center gap-1.5">
+                <button onclick="setCorpFilter('ALL')" data-corp="ALL" class="corp-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-900 text-white border border-slate-900">전체 (19)</button>
+                <button onclick="setCorpFilter('동국제강')" data-corp="동국제강" class="corp-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-slate-700 border border-slate-300 hover:bg-slate-50">동국제강 (5)</button>
+                <button onclick="setCorpFilter('현대제철')" data-corp="현대제철" class="corp-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-slate-700 border border-slate-300 hover:bg-slate-50">현대제철 (9)</button>
+                <button onclick="setCorpFilter('대한제당')" data-corp="대한제당" class="corp-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-slate-700 border border-slate-300 hover:bg-slate-50">대한제당 (1)</button>
+                <button onclick="setCorpFilter('제일제당')" data-corp="제일제당" class="corp-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-slate-700 border border-slate-300 hover:bg-slate-50">씨제이제일제당 (1)</button>
+                <button onclick="setCorpFilter('동화')" data-corp="동화" class="corp-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-slate-700 border border-slate-300 hover:bg-slate-50">동화기업 (1)</button>
+                <button onclick="setCorpFilter('앰코')" data-corp="앰코" class="corp-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-slate-700 border border-slate-300 hover:bg-slate-50">앰코테크놀로지 (2)</button>
+            </div>
+            <div class="text-xs text-slate-500">
+                <i class="fa-regular fa-hand-pointer text-sky-600 mr-1"></i>
+                배출구 행의 <strong class="text-slate-800">실측 NOx</strong> 또는 <strong class="text-slate-800">48슬롯 바</strong>를 클릭하면 00:00~23:30 상세 그래프와 표가 열립니다.
+            </div>
+        </section>
+
+        <!-- 배출구별 실측 현황 테이블 -->
+        <section class="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="border-b border-slate-200 text-[11px] font-bold text-slate-600 bg-slate-50">
+                            <th class="py-3 px-4">사업장명</th>
+                            <th class="py-3 px-3">배출구</th>
+                            <th class="py-3 px-3 text-center">최신 측정시각</th>
+                            <th class="py-3 px-3 text-right">최신 실측 NOx</th>
+                            <th class="py-3 px-3 text-right">일 평균 NOx</th>
+                            <th class="py-3 px-3 text-center">일 최소 ~ 최대</th>
+                            <th class="py-3 px-3 text-right">배출허용기준</th>
+                            <th class="py-3 px-3 min-w-[210px]">00:00 ~ 23:30 (48슬롯) 누적 현황</th>
+                            <th class="py-3 px-3 text-center">실측 가동시간</th>
+                            <th class="py-3 px-4 text-center">상태 / 상세</th>
+                        </tr>
+                    </thead>
+                    <tbody id="plantTableBody" class="divide-y divide-slate-200 text-xs"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- 하단 범례 -->
+        <footer class="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500 pb-4">
+            <div class="flex flex-wrap items-center gap-4">
+                <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-emerald-500 inline-block"></span>정상가동 (NOx &gt; 0 ppm)</span>
+                <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-rose-400 inline-block"></span>가동중지 / 0 ppm / 점검</span>
+                <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-slate-200 inline-block"></span>미수신 / 미경과 시간대</span>
+            </div>
+            <div class="mono">
+                자동 새로고침: 5분 주기 · 출처: 한국환경공단 CleanSYS (공공데이터포털 OpenAPI)
+            </div>
+        </footer>
+    </main>
+
+    <!-- 00:00~23:30 (48슬롯) 상세 시계열 팝업 모달 -->
+    <div id="noxModal" class="fixed inset-0 bg-slate-900/50 z-50 hidden items-center justify-center p-4 backdrop-blur-xs">
+        <div class="bg-white text-slate-900 rounded-2xl max-w-6xl w-full overflow-hidden shadow-2xl border border-slate-200 flex flex-col max-h-[92vh]">
+            <div class="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                <div>
+                    <h2 id="modalTitle" class="text-lg font-extrabold text-slate-900">질소산화물(ppm)</h2>
+                    <p id="modalSubTitle" class="text-xs text-slate-500 mt-0.5">
+                        선택 일자 00:00 ~ 23:30 (30분 단위 48슬롯) CleanSYS 누적 실측 데이터
+                    </p>
+                </div>
+                <button onclick="closeNoxModal()" class="w-8 h-8 rounded-lg hover:bg-slate-200 flex items-center justify-center text-slate-600 text-lg">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="p-6 overflow-y-auto space-y-5 flex-1 bg-white">
+                <div class="flex flex-wrap items-center gap-5 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs">
+                    <span>조회일자: <strong id="modalDate" class="mono text-slate-900">-</strong></span>
+                    <span>최신 측정시각: <strong id="modalLatestDt" class="mono text-emerald-700">-</strong></span>
+                    <span>최신 측정값: <strong id="modalLatestVal" class="mono text-sky-700">-</strong> ppm</span>
+                    <span>일 평균: <strong id="modalAvgVal" class="mono text-slate-900">-</strong> ppm</span>
+                    <span>배출허용기준: <strong id="modalStdVal" class="mono text-rose-600">-</strong> ppm</span>
+                    <span>실측 가동시간: <strong id="modalActiveHours" class="mono text-emerald-700">-</strong></span>
+                </div>
+
+                <div class="bg-white border border-slate-200 rounded-xl p-4 h-72">
+                    <canvas id="noxBarChart"></canvas>
+                </div>
+
+                <div>
+                    <div class="text-xs font-bold text-slate-600 mb-2 flex items-center justify-between">
+                        <span>00:00 ~ 23:30 시간대별 30분 실측값 (5열 그리드)</span>
+                        <span id="modalSlotSummary" class="mono text-slate-500"></span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="cleansys-grid-table">
+                            <tbody id="modalGridBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+const TARGET_STACKS = [
+    { id: 'dk-1', corpKey: '동국제강', corpLabel: '동국제강(주)', stackCode: 1 },
+    { id: 'dk-2', corpKey: '동국제강', corpLabel: '동국제강(주)', stackCode: 2 },
+    { id: 'dk-7', corpKey: '동국제강', corpLabel: '동국제강(주)', stackCode: 7 },
+    { id: 'dk-9', corpKey: '동국제강', corpLabel: '동국제강(주)', stackCode: 9 },
+    { id: 'dk-11', corpKey: '동국제강', corpLabel: '동국제강(주)', stackCode: 11 },
+    { id: 'hd-3', corpKey: '현대제철', corpLabel: '현대제철(주)', stackCode: 3 },
+    { id: 'hd-4', corpKey: '현대제철', corpLabel: '현대제철(주)', stackCode: 4 },
+    { id: 'hd-5', corpKey: '현대제철', corpLabel: '현대제철(주)', stackCode: 5 },
+    { id: 'hd-6', corpKey: '현대제철', corpLabel: '현대제철(주)', stackCode: 6 },
+    { id: 'hd-7', corpKey: '현대제철', corpLabel: '현대제철(주)', stackCode: 7 },
+    { id: 'hd-10', corpKey: '현대제철', corpLabel: '현대제철(주)', stackCode: 10 },
+    { id: 'hd-11', corpKey: '현대제철', corpLabel: '현대제철(주)', stackCode: 11 },
+    { id: 'hd-12', corpKey: '현대제철', corpLabel: '현대제철(주)', stackCode: 12 },
+    { id: 'hd-14', corpKey: '현대제철', corpLabel: '현대제철(주)', stackCode: 14 },
+    { id: 'ts-1', corpKey: '대한제당', corpLabel: '대한제당(주)', stackCode: 1 },
+    { id: 'cj-1', corpKey: '제일제당', corpLabel: '씨제이제일제당(주)', stackCode: 1 },
+    { id: 'dw-522', corpKey: '동화', corpLabel: '동화기업(주)', stackCode: 522 },
+    { id: 'ak-4', corpKey: '앰코', corpLabel: '앰코테크놀로지코리아(주)', stackCode: 4 },
+    { id: 'ak-5', corpKey: '앰코', corpLabel: '앰코테크놀로지코리아(주)', stackCode: 5 }
+];
+
+const FIXED_48_SLOTS = [];
+for (let h = 0; h < 24; h++) {
+    const hh = String(h).padStart(2, '0');
+    FIXED_48_SLOTS.push(`${hh}:00`, `${hh}:30`);
+}
+
+let indexMeta = { availableDates: [], latestDate: null, lastRunKst: null };
+let selectedDate = null;
+let currentDayData = null;
+let corpFilter = 'ALL';
+let modalChartInstance = null;
+
+function getTodayKst() {
+    const now = new Date();
+    const kst = new Date(now.getTime() + (9 * 60 + now.getTimezoneOffset()) * 60000);
+    const y = kst.getFullYear();
+    const m = String(kst.getMonth() + 1).padStart(2, '0');
+    const d = String(kst.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
+
+async function fetchJsonNoCache(path) {
+    const res = await fetch(`${path}?t=${Date.now()}`, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+}
+
+async function refreshAll() {
+    const icon = document.getElementById('refreshIcon');
+    const badge = document.getElementById('syncBadge');
+    icon.classList.add('fa-spin');
+    badge.textContent = '공용 기록 불러오는 중...';
+
+    try {
+        indexMeta = await fetchJsonNoCache('./data/index.json');
+        renderSavedDatesBar();
+
+        if (!selectedDate) {
+            selectedDate = indexMeta.latestDate || getTodayKst();
+        }
+        document.getElementById('datePicker').value = selectedDate;
+
+        await loadDateData(selectedDate);
+
+        if (indexMeta.lastRunKst) {
+            badge.textContent = `자동 수집 완료 (${indexMeta.lastRunKst.slice(5, 16)} KST)`;
+            badge.className = 'px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 mono';
+        } else {
+            badge.textContent = '첫 자동 수집 대기중';
+            badge.className = 'px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-amber-50 text-amber-700 border border-amber-200 mono';
+        }
+    } catch (e) {
+        badge.textContent = '데이터 파일 확인 필요';
+        badge.className = 'px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-rose-50 text-rose-700 border border-rose-200 mono';
+        showEmptyState(
+            'data/index.json 파일을 불러올 수 없습니다.',
+            '로컬 파일(file://)로 직접 열었거나 GitHub Pages 배포가 아직 진행 중일 수 있습니다. 배포된 GitHub Pages 주소(https://...)로 접속해 주세요.'
+        );
+        currentDayData = null;
+        renderDashboard();
+    } finally {
+        icon.classList.remove('fa-spin');
+    }
+}
+
+async function loadDateData(dateStr) {
+    selectedDate = dateStr;
+    document.getElementById('datePicker').value = dateStr;
+    renderSavedDatesBar();
+
+    try {
+        currentDayData = await fetchJsonNoCache(`./data/${dateStr}.json`);
+        hideEmptyState();
+    } catch (e) {
+        currentDayData = null;
+        if (!indexMeta.availableDates || indexMeta.availableDates.length === 0) {
+            showEmptyState(
+                '아직 누적된 실측 데이터 파일이 없습니다.',
+                'GitHub 저장소의 Actions 탭에서 "CleanSYS 30분 자동 실측 수집" 워크플로우를 1회 수동 실행(Run workflow)하면 즉시 데이터가 생성됩니다.'
+            );
+        } else {
+            showEmptyState(
+                `${dateStr} 날짜의 누적 실측 기록이 없습니다.`,
+                `상단의 "저장된 실측 날짜" 버튼에서 기록이 있는 날짜(최근: ${indexMeta.availableDates[0]})를 선택해 주세요.`
+            );
+        }
+    }
+    renderDashboard();
+}
+
+function showEmptyState(title, desc) {
+    document.getElementById('emptyStateTitle').textContent = title;
+    document.getElementById('emptyStateDesc').textContent = desc;
+    document.getElementById('emptyStateBanner').classList.remove('hidden');
+}
+
+function hideEmptyState() {
+    document.getElementById('emptyStateBanner').classList.add('hidden');
+}
+
+function renderSavedDatesBar() {
+    const bar = document.getElementById('savedDatesBar');
+    const dates = indexMeta.availableDates || [];
+    if (dates.length === 0) {
+        bar.innerHTML = '<span class="text-slate-400">아직 저장된 날짜 없음 (첫 Actions 실행 대기)</span>';
+        return;
+    }
+    bar.innerHTML = dates.slice(0, 14).map(d => {
+        const active = d === selectedDate;
+        return `
+            <button onclick="loadDateData('${d}')"
+                class="px-2.5 py-1 rounded-md mono text-[11px] font-bold border transition ${
+                    active
+                        ? 'bg-sky-600 text-white border-sky-600 shadow-xs'
+                        : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                }">
+                ${d}
+            </button>
+        `;
+    }).join('');
+}
+
+function onDatePickerChange() {
+    const val = document.getElementById('datePicker').value;
+    if (val) loadDateData(val);
+}
+
+function shiftDate(deltaDays) {
+    const base = selectedDate || getTodayKst();
+    const parts = base.split('-').map(Number);
+    const dt = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2] + deltaDays));
+    const next = dt.toISOString().slice(0, 10);
+    loadDateData(next);
+}
+
+function goLatestDate() {
+    loadDateData(indexMeta.latestDate || getTodayKst());
+}
+
+function setCorpFilter(key) {
+    corpFilter = key;
+    document.querySelectorAll('.corp-filter-btn').forEach(btn => {
+        const isSelected = btn.dataset.corp === key;
+        btn.className = isSelected
+            ? 'corp-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-900 text-white border border-slate-900'
+            : 'corp-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-slate-700 border border-slate-300 hover:bg-slate-50';
+    });
+    renderDashboard();
+}
+
+function computeStackMetrics(stackDef) {
+    const stackData = currentDayData?.stacks?.[stackDef.id];
+    const slotsObj = stackData?.slots || {};
+    const slotKeys = Object.keys(slotsObj).sort();
+
+    if (slotKeys.length === 0) {
+        return {
+            rawCorpName: stackData?.rawCorpName || stackDef.corpLabel,
+            stdNox: stackData?.stdNox ?? null,
+            slotsObj,
+            hasData: false,
+            latestTime: '-',
+            latestNox: null,
+            avgNox: null,
+            minNox: null,
+            maxNox: null,
+            receivedCount: 0,
+            activeCount: 0,
+            activeHours: 0,
+            statusText: '미수신'
+        };
+    }
+
+    // 최신 유효 슬롯 탐색
+    let latestKey = slotKeys[slotKeys.length - 1];
+    let latestValidKey = null;
+    for (let i = slotKeys.length - 1; i >= 0; i--) {
+        const s = slotsObj[slotKeys[i]];
+        if (s && s.nox !== null && s.nox !== undefined && !isNaN(Number(s.nox))) {
+            latestValidKey = slotKeys[i];
+            break;
+        }
+    }
+
+    const numericVals = [];
+    let activeCount = 0;
+    slotKeys.forEach(k => {
+        const v = slotsObj[k]?.nox;
+        if (v !== null && v !== undefined && !isNaN(Number(v))) {
+            const num = Number(v);
+            numericVals.push(num);
+            if (num > 0) activeCount++;
+        }
+    });
+
+    const latestSlot = slotsObj[latestValidKey || latestKey];
+    const latestNox = (latestSlot && latestSlot.nox !== null && latestSlot.nox !== undefined) ? Number(latestSlot.nox) : null;
+
+    return {
+        rawCorpName: stackData?.rawCorpName || stackDef.corpLabel,
+        stdNox: stackData?.stdNox ?? null,
+        slotsObj,
+        hasData: latestNox !== null,
+        latestTime: latestValidKey || latestKey,
+        latestNox,
+        avgNox: numericVals.length ? numericVals.reduce((a, b) => a + b, 0) / numericVals.length : null,
+        minNox: numericVals.length ? Math.min(...numericVals) : null,
+        maxNox: numericVals.length ? Math.max(...numericVals) : null,
+        receivedCount: slotKeys.length,
+        activeCount,
+        activeHours: activeCount * 0.5,
+        statusText: latestSlot?.status || '정상가동'
+    };
+}
+
+function buildMiniTimelineHtml(slotsObj) {
+    const bars = FIXED_48_SLOTS.map(t => {
+        const s = slotsObj[t];
+        let cls = 'bg-slate-200';
+        let tip = `${t} 미수신`;
+        if (s) {
+            if (s.nox !== null && s.nox !== undefined && Number(s.nox) > 0) {
+                cls = 'bg-emerald-500';
+                tip = `${t} : ${Number(s.nox).toFixed(2)} ppm`;
+            } else {
+                cls = 'bg-rose-400';
+                tip = `${t} : ${s.nox === 0 ? '0.00 ppm' : (s.status || '중지/점검')}`;
+            }
+        }
+        return `<span title="${tip}" class="flex-1 h-4 rounded-[1px] ${cls}"></span>`;
+    }).join('');
+    return `<div class="flex items-center gap-[1.5px] w-full">${bars}</div>`;
+}
+
+function renderDashboard() {
+    const tbody = document.getElementById('plantTableBody');
+    tbody.innerHTML = '';
+
+    let matchedAll = 0;
+    let sumLatest = 0;
+    let sumAvg = 0;
+    let sumHours = 0;
+
+    TARGET_STACKS.forEach(st => {
+        const m = computeStackMetrics(st);
+        if (m.hasData) {
+            matchedAll++;
+            sumLatest += m.latestNox;
+            if (m.avgNox !== null) sumAvg += m.avgNox;
+            sumHours += m.activeHours;
+        }
+
+        if (corpFilter !== 'ALL' && st.corpKey !== corpFilter) return;
+
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50 transition';
+
+        const rangeStr = (m.minNox !== null && m.maxNox !== null)
+            ? `${m.minNox.toFixed(2)} ~ ${m.maxNox.toFixed(2)}`
+            : '-';
+
+        tr.innerHTML = `
+            <td class="py-3 px-4">
+                <div class="font-bold text-slate-900">${st.corpLabel}</div>
+                <div class="text-[11px] text-slate-400 mono">${m.rawCorpName}</div>
+            </td>
+            <td class="py-3 px-3 mono">
+                <span class="px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-800 font-bold">#${st.stackCode}번</span>
+            </td>
+            <td class="py-3 px-3 text-center mono ${m.hasData ? 'text-emerald-700 font-bold' : 'text-slate-400'}">
+                ${m.latestTime}
+            </td>
+            <td class="py-3 px-3 text-right">
+                ${m.hasData ? `
+                    <button onclick="openNoxModal('${st.id}')" class="px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 font-extrabold mono transition inline-flex items-center gap-1.5">
+                        <span>${m.latestNox.toFixed(2)} ppm</span>
+                        <i class="fa-solid fa-chart-column text-[10px] text-amber-600"></i>
+                    </button>
+                ` : '<span class="text-slate-400 mono">-</span>'}
+            </td>
+            <td class="py-3 px-3 text-right mono font-bold ${m.avgNox !== null ? 'text-sky-700' : 'text-slate-400'}">
+                ${m.avgNox !== null ? m.avgNox.toFixed(2) + ' ppm' : '-'}
+            </td>
+            <td class="py-3 px-3 text-center mono text-slate-600">
+                ${rangeStr}
+            </td>
+            <td class="py-3 px-3 text-right mono text-slate-600">
+                ${m.stdNox !== null ? m.stdNox + ' ppm' : '-'}
+            </td>
+            <td class="py-3 px-3 cursor-pointer" onclick="openNoxModal('${st.id}')">
+                ${buildMiniTimelineHtml(m.slotsObj)}
+                <div class="flex justify-between text-[10px] text-slate-400 mono mt-1">
+                    <span>00:00</span>
+                    <span>누적 ${m.receivedCount}/48슬롯</span>
+                    <span>23:30</span>
+                </div>
+            </td>
+            <td class="py-3 px-3 text-center mono">
+                <span class="px-2.5 py-1 rounded-md ${m.activeHours > 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 font-extrabold' : 'text-slate-400'}">
+                    ${m.activeHours.toFixed(1)} h (${m.activeCount}슬롯)
+                </span>
+            </td>
+            <td class="py-3 px-4 text-center">
+                <div class="flex items-center justify-center gap-2">
+                    <span class="text-[11px] font-semibold ${m.hasData ? 'text-emerald-700' : 'text-slate-400'}">${m.statusText}</span>
+                    <button onclick="openNoxModal('${st.id}')" class="px-2 py-1 rounded bg-white hover:bg-slate-100 text-sky-700 border border-slate-300 text-[11px] font-bold transition">
+                        상세
+                    </button>
+                </div>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    document.getElementById('kpiMatched').textContent = `${matchedAll} / ${TARGET_STACKS.length}`;
+    document.getElementById('kpiDateLabel').textContent = selectedDate || '-';
+    document.getElementById('kpiAvgLatestNox').textContent = matchedAll ? (sumLatest / matchedAll).toFixed(2) : '0.00';
+    document.getElementById('kpiAvgDayNox').textContent = matchedAll ? (sumAvg / matchedAll).toFixed(2) : '0.00';
+    document.getElementById('kpiAvgHours').textContent = matchedAll ? (sumHours / matchedAll).toFixed(1) : '0.0';
+    document.getElementById('kpiLastUpdated').textContent = currentDayData?.updatedAtKst ? `갱신 ${currentDayData.updatedAtKst.slice(11, 16)}` : '-';
+}
+
+function openNoxModal(stackId) {
+    const st = TARGET_STACKS.find(x => x.id === stackId);
+    if (!st) return;
+    const m = computeStackMetrics(st);
+    const shortDate = selectedDate ? selectedDate.slice(5) : '';
+
+    document.getElementById('modalTitle').textContent = `질소산화물(ppm) - ${st.corpLabel} #${st.stackCode}번 배출구`;
+    document.getElementById('modalDate').textContent = selectedDate || '-';
+    document.getElementById('modalLatestDt').textContent = m.latestTime;
+    document.getElementById('modalLatestVal').textContent = m.latestNox !== null ? m.latestNox.toFixed(2) : '-';
+    document.getElementById('modalAvgVal').textContent = m.avgNox !== null ? m.avgNox.toFixed(2) : '-';
+    document.getElementById('modalStdVal').textContent = m.stdNox !== null ? m.stdNox : '-';
+    document.getElementById('modalActiveHours').textContent = `${m.activeHours.toFixed(1)} h (${m.activeCount}/48슬롯)`;
+    document.getElementById('modalSlotSummary').textContent = `누적 수신: ${m.receivedCount} / 48슬롯`;
+
+    const ctx = document.getElementById('noxBarChart').getContext('2d');
+    if (modalChartInstance) modalChartInstance.destroy();
+
+    const chartValues = FIXED_48_SLOTS.map(t => {
+        const v = m.slotsObj[t]?.nox;
+        return (v !== null && v !== undefined && !isNaN(Number(v))) ? Number(v) : null;
+    });
+
+    modalChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: FIXED_48_SLOTS,
+            datasets: [{
+                label: '질소산화물 (ppm)',
+                data: chartValues,
+                backgroundColor: '#0284c7',
+                borderRadius: 2,
+                barPercentage: 0.7
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: c => c.parsed.y !== null ? `측정값: ${c.parsed.y.toFixed(2)} ppm` : '미수신'
+                    }
+                }
+            },
+            scales: {
+                x: { ticks: { font: { size: 11 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 12 }, grid: { display: false } },
+                y: { beginAtZero: true, ticks: { font: { size: 11 } }, grid: { color: '#e2e8f0' } }
+            }
+        }
+    });
+
+    // 5열 그리드 표 (48슬롯 전체)
+    const gridBody = document.getElementById('modalGridBody');
+    gridBody.innerHTML = '';
+    const colsPerRow = 5;
+    const totalRows = Math.ceil(FIXED_48_SLOTS.length / colsPerRow);
+
+    for (let r = 0; r < totalRows; r++) {
+        const tr = document.createElement('tr');
+        for (let c = 0; c < colsPerRow; c++) {
+            const idx = r * colsPerRow + c;
+            const slotTime = FIXED_48_SLOTS[idx];
+            const tdTime = document.createElement('td');
+            const tdVal = document.createElement('td');
+
+            if (slotTime) {
+                tdTime.className = 'time-cell mono';
+                tdTime.textContent = shortDate ? `${shortDate} ${slotTime}` : slotTime;
+
+                const s = m.slotsObj[slotTime];
+                if (s && s.nox !== null && s.nox !== undefined) {
+                    const num = Number(s.nox);
+                    const isLatest = slotTime === m.latestTime;
+                    tdVal.className = `val-cell mono ${isLatest ? 'latest-cell' : (num === 0 ? 'zero-cell' : '')}`;
+                    tdVal.textContent = num.toFixed(2);
+                } else if (s && s.status) {
+                    tdVal.className = 'zero-cell text-[11px]';
+                    tdVal.textContent = s.status;
+                } else {
+                    tdVal.className = 'empty-cell mono';
+                    tdVal.textContent = '-';
+                }
+            } else {
+                tdTime.className = 'time-cell';
+                tdVal.className = 'empty-cell';
+            }
+            tr.appendChild(tdTime);
+            tr.appendChild(tdVal);
+        }
+        gridBody.appendChild(tr);
+    }
+
+    const modal = document.getElementById('noxModal');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+}
+
+function closeNoxModal() {
+    const modal = document.getElementById('noxModal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+}
+
+function downloadSelectedCsv() {
+    if (!currentDayData) {
+        alert('다운로드할 실측 데이터가 없습니다.');
+        return;
+    }
+    const headers = ['조회일자', '사업장명', '배출구번호', '배출허용기준(ppm)', '실측가동시간(h)', '일평균NOx(ppm)', ...FIXED_48_SLOTS];
+    const rows = [headers.join(',')];
+
+    TARGET_STACKS.forEach(st => {
+        const m = computeStackMetrics(st);
+        const slotCols = FIXED_48_SLOTS.map(t => {
+            const v = m.slotsObj[t]?.nox;
+            return (v !== null && v !== undefined) ? Number(v).toFixed(2) : '';
+        });
+        const line = [
+            selectedDate,
+            `"${st.corpLabel}"`,
+            st.stackCode,
+            m.stdNox ?? '',
+            m.activeHours.toFixed(1),
+            m.avgNox !== null ? m.avgNox.toFixed(2) : '',
+            ...slotCols
+        ];
+        rows.push(line.join(','));
+    });
+
+    const blob = new Blob(['\uFEFF' + rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `CleanSYS_TMS_${selectedDate}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+    refreshAll();
+    // 5분마다 공용 누적 JSON 자동 갱신 확인
+    setInterval(refreshAll, 5 * 60 * 1000);
+});
+</script>
+</body>
+</html>

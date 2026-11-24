@@ -61,7 +61,7 @@
 
     <!-- 상단 헤더 -->
     <header class="bg-white border-b border-slate-200 px-6 py-4 sticky top-0 z-30">
-        <div class="max-w-[1650px] mx-auto flex flex-wrap items-center justify-between gap-4">
+        <div class="max-w-[1680px] mx-auto flex flex-wrap items-center justify-between gap-4">
             <div class="flex items-center gap-3">
                 <div class="w-10 h-10 rounded-xl bg-sky-50 border border-sky-200 flex items-center justify-center text-sky-600">
                     <i class="fa-solid fa-smog text-lg"></i>
@@ -76,13 +76,22 @@
                         </span>
                     </div>
                     <p class="text-xs text-slate-500 mt-0.5">
-                        GitHub Actions 30분 자동 누적 · 매일 00:00~23:30 (48슬롯) 실측 기록 공용 조회
+                        30분 자동 누적 · 당일(48슬롯) · 전일 비교 · 월별 실측 가동시간 공용 조회
                     </p>
                 </div>
             </div>
 
-            <!-- 날짜 컨트롤 및 도구 -->
+            <!-- 월/날짜 컨트롤 및 도구 -->
             <div class="flex flex-wrap items-center gap-2">
+                <!-- 월 선택 드롭다운 -->
+                <div class="inline-flex items-center bg-indigo-50 border border-indigo-200 rounded-lg px-2 py-1">
+                    <i class="fa-regular fa-calendar text-indigo-600 text-xs mr-1.5"></i>
+                    <select id="monthPicker" onchange="onMonthPickerChange()" class="bg-transparent text-xs font-bold text-indigo-800 mono focus:outline-none cursor-pointer pr-1" title="월별 누적 기준 월 선택">
+                        <option value="">월 선택</option>
+                    </select>
+                </div>
+
+                <!-- 일자 선택 -->
                 <div class="inline-flex items-center bg-slate-50 border border-slate-300 rounded-lg overflow-hidden">
                     <button id="prevDateBtn" onclick="shiftDate(-1)" class="px-2.5 py-1.5 text-slate-600 hover:bg-slate-200 transition text-xs font-bold" title="이전 날짜">
                         <i class="fa-solid fa-chevron-left"></i>
@@ -97,8 +106,12 @@
                     최신일
                 </button>
 
-                <button onclick="downloadSelectedCsv()" class="px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-bold transition">
-                    <i class="fa-solid fa-file-csv mr-1"></i>CSV 저장
+                <button onclick="downloadSelectedCsv()" class="px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-bold transition" title="선택 일자 48슬롯 + 전일/월누적 CSV 저장">
+                    <i class="fa-solid fa-file-csv mr-1"></i>일별 CSV
+                </button>
+
+                <button onclick="downloadMonthlyCsv()" class="px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold transition" title="선택 월 전체 일자별 실측 가동시간 CSV 저장">
+                    <i class="fa-solid fa-table mr-1"></i>월별 CSV
                 </button>
 
                 <button onclick="refreshAll()" class="px-3.5 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold flex items-center gap-1.5 transition shadow-sm">
@@ -108,9 +121,9 @@
         </div>
 
         <!-- 저장된 과거 날짜 빠른 선택 바 -->
-        <div class="max-w-[1650px] mx-auto mt-3 pt-2.5 border-t border-slate-100 flex flex-wrap items-center gap-2 text-xs">
+        <div class="max-w-[1680px] mx-auto mt-3 pt-2.5 border-t border-slate-100 flex flex-wrap items-center gap-2 text-xs">
             <span class="text-slate-500 font-semibold whitespace-nowrap">
-                <i class="fa-regular fa-calendar-check text-sky-600 mr-1"></i>저장된 실측 날짜:
+                <i class="fa-regular fa-calendar-check text-sky-600 mr-1"></i><span id="savedDatesMonthLabel">저장된 실측 날짜</span>:
             </span>
             <div id="savedDatesBar" class="flex flex-wrap items-center gap-1.5">
                 <span class="text-slate-400">조회 중...</span>
@@ -119,7 +132,7 @@
     </header>
 
     <!-- 메인 컨텐츠 -->
-    <main class="max-w-[1650px] w-full mx-auto px-6 py-6 flex-1 flex flex-col gap-5">
+    <main class="max-w-[1680px] w-full mx-auto px-6 py-6 flex-1 flex flex-col gap-5">
 
         <!-- 초기 안내 배너 (데이터 미수집 시 표시) -->
         <div id="emptyStateBanner" class="hidden bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-900">
@@ -132,41 +145,53 @@
             </p>
         </div>
 
-        <!-- KPI 요약 카드 -->
-        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- KPI 요약 카드 (5열: 수신현황 · NOx · 당일 가동 · 전일 가동 · 월 누적 가동) -->
+        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
                 <div class="text-xs font-semibold text-slate-500">조회일 / 수신 완료 배출구</div>
                 <div class="mt-1.5 flex items-baseline justify-between">
                     <span id="kpiMatched" class="text-2xl font-extrabold text-slate-900 mono">0 / 19</span>
                     <span id="kpiDateLabel" class="text-xs font-bold text-sky-600 mono">-</span>
                 </div>
+                <div class="mt-1 text-[11px] text-slate-400 mono" id="kpiLastUpdated">-</div>
             </div>
 
             <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-                <div class="text-xs font-semibold text-slate-500">배출구 최신 실측 NOx 평균</div>
+                <div class="text-xs font-semibold text-slate-500">최신 실측 NOx 평균</div>
                 <div class="mt-1.5 flex items-baseline gap-1.5">
                     <span id="kpiAvgLatestNox" class="text-2xl font-extrabold text-amber-600 mono">0.00</span>
                     <span class="text-xs text-slate-500 mono">ppm</span>
                 </div>
-            </div>
-
-            <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-                <div class="text-xs font-semibold text-slate-500">해당일 전체 시계열 평균 NOx</div>
-                <div class="mt-1.5 flex items-baseline gap-1.5">
-                    <span id="kpiAvgDayNox" class="text-2xl font-extrabold text-sky-600 mono">0.00</span>
-                    <span class="text-xs text-slate-500 mono">ppm</span>
+                <div class="mt-1 text-[11px] text-slate-500 mono">
+                    일 전체 평균: <strong id="kpiAvgDayNox" class="text-sky-700">0.00</strong> ppm
                 </div>
             </div>
 
-            <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-                <div class="text-xs font-semibold text-slate-500">배출구 평균 실측 가동시간 (NOx &gt; 0)</div>
-                <div class="mt-1.5 flex items-baseline justify-between">
-                    <div>
-                        <span id="kpiAvgHours" class="text-2xl font-extrabold text-emerald-600 mono">0.0</span>
-                        <span class="text-xs text-slate-500 mono ml-1">h / 24.0h</span>
-                    </div>
-                    <span id="kpiLastUpdated" class="text-[11px] text-slate-400 mono">-</span>
+            <div class="bg-white border border-emerald-200 rounded-xl p-4 shadow-sm">
+                <div class="text-xs font-semibold text-emerald-700">당일 평균 실측 가동시간</div>
+                <div class="mt-1.5 flex items-baseline gap-1">
+                    <span id="kpiAvgHours" class="text-2xl font-extrabold text-emerald-600 mono">0.0</span>
+                    <span class="text-xs text-slate-500 mono">h / 24.0h</span>
                 </div>
+                <div class="mt-1 text-[11px] text-slate-400 mono">NOx &gt; 0 ppm 슬롯 기준</div>
+            </div>
+
+            <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                <div class="text-xs font-semibold text-slate-600">전일 평균 실측 가동시간</div>
+                <div class="mt-1.5 flex items-baseline gap-1">
+                    <span id="kpiPrevAvgHours" class="text-2xl font-extrabold text-slate-800 mono">-</span>
+                    <span class="text-xs text-slate-500 mono">h / 24.0h</span>
+                </div>
+                <div class="mt-1 text-[11px] text-slate-500 mono" id="kpiPrevDateLabel">전일 기준: -</div>
+            </div>
+
+            <div class="bg-white border border-indigo-200 rounded-xl p-4 shadow-sm">
+                <div class="text-xs font-semibold text-indigo-700">월 누적 평균 가동시간</div>
+                <div class="mt-1.5 flex items-baseline gap-1">
+                    <span id="kpiMonthAvgHours" class="text-2xl font-extrabold text-indigo-600 mono">0.0</span>
+                    <span class="text-xs text-slate-500 mono">h</span>
+                </div>
+                <div class="mt-1 text-[11px] text-indigo-600/80 mono font-semibold" id="kpiMonthMetaLabel">-</div>
             </div>
         </section>
 
@@ -194,15 +219,22 @@
                     <thead>
                         <tr class="border-b border-slate-200 text-[11px] font-bold text-slate-600 bg-slate-50">
                             <th class="py-3 px-4">사업장명</th>
-                            <th class="py-3 px-3">배출구</th>
-                            <th class="py-3 px-3 text-center">최신 측정시각</th>
-                            <th class="py-3 px-3 text-right">최신 실측 NOx</th>
-                            <th class="py-3 px-3 text-right">일 평균 NOx</th>
-                            <th class="py-3 px-3 text-center">일 최소 ~ 최대</th>
-                            <th class="py-3 px-3 text-right">배출허용기준</th>
-                            <th class="py-3 px-3 min-w-[210px]">00:00 ~ 23:30 (48슬롯) 누적 현황</th>
-                            <th class="py-3 px-3 text-center">실측 가동시간</th>
-                            <th class="py-3 px-4 text-center">상태 / 상세</th>
+                            <th class="py-3 px-2.5">배출구</th>
+                            <th class="py-3 px-2.5 text-center">최신 시각</th>
+                            <th class="py-3 px-2.5 text-right">최신 실측 NOx</th>
+                            <th class="py-3 px-2.5 text-right">일 평균 (최소~최대)</th>
+                            <th class="py-3 px-2.5 text-right">허용기준</th>
+                            <th class="py-3 px-3 min-w-[195px]">00:00 ~ 23:30 (48슬롯) 누적 현황</th>
+                            <th class="py-3 px-2.5 text-center">당일 가동</th>
+                            <th class="py-3 px-2.5 text-center">
+                                <div>전일 가동</div>
+                                <div id="thPrevDateSub" class="text-[10px] font-normal text-slate-400 mono">-</div>
+                            </th>
+                            <th class="py-3 px-2.5 text-center bg-indigo-50/60 text-indigo-800">
+                                <div>월 누적시간</div>
+                                <div id="thMonthSub" class="text-[10px] font-normal text-indigo-600 mono">-</div>
+                            </th>
+                            <th class="py-3 px-3 text-center">상태 / 상세</th>
                         </tr>
                     </thead>
                     <tbody id="plantTableBody" class="divide-y divide-slate-200 text-xs"></tbody>
@@ -224,7 +256,7 @@
     </main>
 
     <!-- 00:00~23:30 (48슬롯) 상세 시계열 팝업 모달 -->
-    <div id="noxModal" class="fixed inset-0 bg-slate-900/50 z-50 hidden items-center justify-center p-4 backdrop-blur-xs">
+    <div id="noxModal" onclick="if(event.target===this) closeNoxModal()" class="fixed inset-0 bg-slate-900/50 z-50 hidden items-center justify-center p-4 backdrop-blur-sm">
         <div class="bg-white text-slate-900 rounded-2xl max-w-6xl w-full overflow-hidden shadow-2xl border border-slate-200 flex flex-col max-h-[92vh]">
             <div class="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
                 <div>
@@ -239,13 +271,15 @@
             </div>
 
             <div class="p-6 overflow-y-auto space-y-5 flex-1 bg-white">
-                <div class="flex flex-wrap items-center gap-5 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs">
+                <div class="flex flex-wrap items-center gap-x-5 gap-y-2 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs">
                     <span>조회일자: <strong id="modalDate" class="mono text-slate-900">-</strong></span>
                     <span>최신 측정시각: <strong id="modalLatestDt" class="mono text-emerald-700">-</strong></span>
                     <span>최신 측정값: <strong id="modalLatestVal" class="mono text-sky-700">-</strong> ppm</span>
                     <span>일 평균: <strong id="modalAvgVal" class="mono text-slate-900">-</strong> ppm</span>
                     <span>배출허용기준: <strong id="modalStdVal" class="mono text-rose-600">-</strong> ppm</span>
-                    <span>실측 가동시간: <strong id="modalActiveHours" class="mono text-emerald-700">-</strong></span>
+                    <span>당일 가동: <strong id="modalActiveHours" class="mono text-emerald-700">-</strong></span>
+                    <span>전일 가동: <strong id="modalPrevHours" class="mono text-slate-800">-</strong></span>
+                    <span>월 누적: <strong id="modalMonthHours" class="mono text-indigo-700">-</strong></span>
                 </div>
 
                 <div class="bg-white border border-slate-200 rounded-xl p-4 h-72">
@@ -298,9 +332,18 @@ for (let h = 0; h < 24; h++) {
 
 let indexMeta = { availableDates: [], latestDate: null, lastRunKst: null };
 let selectedDate = null;
+let prevDateStr = null;
+let selectedMonthKey = null;
+
 let currentDayData = null;
+let prevDayData = null;
+let monthDatesList = [];
+let monthDayDataMap = {};   // { 'YYYY-MM-DD': dayJson }
+let dayDataCache = {};      // 메모리 캐시 (refreshAll 시 초기화)
+
 let corpFilter = 'ALL';
 let modalChartInstance = null;
+let loadRequestSeq = 0;
 
 function getTodayKst() {
     const now = new Date();
@@ -311,10 +354,31 @@ function getTodayKst() {
     return `${y}-${m}-${d}`;
 }
 
+function getShiftedDateStr(dateStr, deltaDays) {
+    const parts = dateStr.split('-').map(Number);
+    const dt = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2] + deltaDays));
+    return dt.toISOString().slice(0, 10);
+}
+
 async function fetchJsonNoCache(path) {
     const res = await fetch(`${path}?t=${Date.now()}`, { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
+}
+
+async function fetchDayJsonCached(dateStr) {
+    if (!dateStr) return null;
+    if (Object.prototype.hasOwnProperty.call(dayDataCache, dateStr)) {
+        return dayDataCache[dateStr];
+    }
+    try {
+        const data = await fetchJsonNoCache(`./data/${dateStr}.json`);
+        dayDataCache[dateStr] = data;
+        return data;
+    } catch (e) {
+        dayDataCache[dateStr] = null;
+        return null;
+    }
 }
 
 async function refreshAll() {
@@ -323,9 +387,11 @@ async function refreshAll() {
     icon.classList.add('fa-spin');
     badge.textContent = '공용 기록 불러오는 중...';
 
+    // 새로고침 시 최신 데이터 반영을 위해 캐시 초기화
+    dayDataCache = {};
+
     try {
         indexMeta = await fetchJsonNoCache('./data/index.json');
-        renderSavedDatesBar();
 
         if (!selectedDate) {
             selectedDate = indexMeta.latestDate || getTodayKst();
@@ -349,6 +415,9 @@ async function refreshAll() {
             '로컬 파일(file://)로 직접 열었거나 GitHub Pages 배포가 아직 진행 중일 수 있습니다. 배포된 GitHub Pages 주소(https://...)로 접속해 주세요.'
         );
         currentDayData = null;
+        prevDayData = null;
+        monthDatesList = [];
+        monthDayDataMap = {};
         renderDashboard();
     } finally {
         icon.classList.remove('fa-spin');
@@ -356,15 +425,46 @@ async function refreshAll() {
 }
 
 async function loadDateData(dateStr) {
+    const reqId = ++loadRequestSeq;
     selectedDate = dateStr;
+    prevDateStr = getShiftedDateStr(dateStr, -1);
+    selectedMonthKey = dateStr.slice(0, 7);
+
     document.getElementById('datePicker').value = dateStr;
+    renderMonthPicker();
     renderSavedDatesBar();
 
-    try {
-        currentDayData = await fetchJsonNoCache(`./data/${dateStr}.json`);
+    const availableSet = new Set(indexMeta.availableDates || []);
+    const targetMonthDates = (indexMeta.availableDates || [])
+        .filter(d => d.startsWith(selectedMonthKey))
+        .sort(); // 오름차순 (01일 -> 말일)
+
+    // 당일 + 전일 + 해당 월 전체 일자를 병렬로 조회 (중복 날짜는 1회만 요청)
+    const datesToFetch = new Set([dateStr, ...targetMonthDates]);
+    if (availableSet.has(prevDateStr)) {
+        datesToFetch.add(prevDateStr);
+    }
+
+    const fetchEntries = await Promise.all(
+        Array.from(datesToFetch).map(async d => [d, await fetchDayJsonCached(d)])
+    );
+
+    // 최신 요청만 반영 (빠른 날짜 전환 시 역전 방지)
+    if (reqId !== loadRequestSeq) return;
+
+    const fetchedMap = Object.fromEntries(fetchEntries);
+    currentDayData = fetchedMap[dateStr] || null;
+    prevDayData = availableSet.has(prevDateStr) ? (fetchedMap[prevDateStr] || null) : null;
+
+    monthDatesList = targetMonthDates.filter(d => fetchedMap[d]);
+    monthDayDataMap = {};
+    monthDatesList.forEach(d => {
+        monthDayDataMap[d] = fetchedMap[d];
+    });
+
+    if (currentDayData) {
         hideEmptyState();
-    } catch (e) {
-        currentDayData = null;
+    } else {
         if (!indexMeta.availableDates || indexMeta.availableDates.length === 0) {
             showEmptyState(
                 '아직 누적된 실측 데이터 파일이 없습니다.',
@@ -377,6 +477,7 @@ async function loadDateData(dateStr) {
             );
         }
     }
+
     renderDashboard();
 }
 
@@ -390,20 +491,67 @@ function hideEmptyState() {
     document.getElementById('emptyStateBanner').classList.add('hidden');
 }
 
+function renderMonthPicker() {
+    const picker = document.getElementById('monthPicker');
+    const dates = indexMeta.availableDates || [];
+    const monthSet = new Set(dates.map(d => d.slice(0, 7)));
+    if (selectedMonthKey) monthSet.add(selectedMonthKey);
+
+    const months = Array.from(monthSet).sort().reverse(); // 최신 월 우선
+    if (months.length === 0) {
+        picker.innerHTML = '<option value="">월 없음</option>';
+        return;
+    }
+
+    picker.innerHTML = months.map(m => {
+        const count = dates.filter(d => d.startsWith(m)).length;
+        const [y, mm] = m.split('-');
+        return `<option value="${m}" ${m === selectedMonthKey ? 'selected' : ''}>${y}년 ${Number(mm)}월 (${count}일)</option>`;
+    }).join('');
+}
+
+function onMonthPickerChange() {
+    const targetMonth = document.getElementById('monthPicker').value;
+    if (!targetMonth) return;
+    const datesInMonth = (indexMeta.availableDates || []).filter(d => d.startsWith(targetMonth));
+    if (datesInMonth.length > 0) {
+        // 해당 월의 가장 최근 기록일로 이동
+        loadDateData(datesInMonth[0]);
+    } else {
+        loadDateData(`${targetMonth}-01`);
+    }
+}
+
 function renderSavedDatesBar() {
     const bar = document.getElementById('savedDatesBar');
-    const dates = indexMeta.availableDates || [];
-    if (dates.length === 0) {
+    const label = document.getElementById('savedDatesMonthLabel');
+    const allDates = indexMeta.availableDates || [];
+
+    if (allDates.length === 0) {
+        label.textContent = '저장된 실측 날짜';
         bar.innerHTML = '<span class="text-slate-400">아직 저장된 날짜 없음 (첫 Actions 실행 대기)</span>';
         return;
     }
-    bar.innerHTML = dates.slice(0, 14).map(d => {
+
+    const monthDates = selectedMonthKey
+        ? allDates.filter(d => d.startsWith(selectedMonthKey))
+        : [];
+    const displayDates = monthDates.length > 0 ? monthDates : allDates.slice(0, 14);
+
+    if (selectedMonthKey && monthDates.length > 0) {
+        const [y, mm] = selectedMonthKey.split('-');
+        label.textContent = `${y}년 ${Number(mm)}월 저장 날짜 (${monthDates.length}일)`;
+    } else {
+        label.textContent = '저장된 실측 날짜';
+    }
+
+    bar.innerHTML = displayDates.map(d => {
         const active = d === selectedDate;
         return `
             <button onclick="loadDateData('${d}')"
                 class="px-2.5 py-1 rounded-md mono text-[11px] font-bold border transition ${
                     active
-                        ? 'bg-sky-600 text-white border-sky-600 shadow-xs'
+                        ? 'bg-sky-600 text-white border-sky-600 shadow-sm'
                         : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
                 }">
                 ${d}
@@ -419,10 +567,7 @@ function onDatePickerChange() {
 
 function shiftDate(deltaDays) {
     const base = selectedDate || getTodayKst();
-    const parts = base.split('-').map(Number);
-    const dt = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2] + deltaDays));
-    const next = dt.toISOString().slice(0, 10);
-    loadDateData(next);
+    loadDateData(getShiftedDateStr(base, deltaDays));
 }
 
 function goLatestDate() {
@@ -438,6 +583,69 @@ function setCorpFilter(key) {
             : 'corp-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-slate-700 border border-slate-300 hover:bg-slate-50';
     });
     renderDashboard();
+}
+
+// 특정 일자 데이터에서 단일 배출구의 실측 가동시간/슬롯 계산
+function calcDayOperatingStats(dayData, stackId) {
+    const stackData = dayData?.stacks?.[stackId];
+    const slotsObj = stackData?.slots || {};
+    const slotKeys = Object.keys(slotsObj);
+    let activeCount = 0;
+    let validNumericCount = 0;
+
+    slotKeys.forEach(k => {
+        const v = slotsObj[k]?.nox;
+        if (v !== null && v !== undefined && !isNaN(Number(v))) {
+            validNumericCount++;
+            if (Number(v) > 0) activeCount++;
+        }
+    });
+
+    return {
+        receivedCount: slotKeys.length,
+        validNumericCount,
+        activeCount,
+        activeHours: activeCount * 0.5
+    };
+}
+
+// 전일 가동시간 계산
+function computePrevDayMetrics(stackDef) {
+    if (!prevDayData) {
+        return { hasRecord: false, activeCount: 0, activeHours: null, receivedCount: 0 };
+    }
+    const stats = calcDayOperatingStats(prevDayData, stackDef.id);
+    if (stats.receivedCount === 0) {
+        return { hasRecord: false, activeCount: 0, activeHours: null, receivedCount: 0 };
+    }
+    return {
+        hasRecord: true,
+        activeCount: stats.activeCount,
+        activeHours: stats.activeHours,
+        receivedCount: stats.receivedCount
+    };
+}
+
+// 월별 누적 가동시간 계산
+function computeMonthMetrics(stackDef) {
+    let totalActiveCount = 0;
+    let measuredDays = 0;
+
+    monthDatesList.forEach(d => {
+        const stats = calcDayOperatingStats(monthDayDataMap[d], stackDef.id);
+        if (stats.receivedCount > 0) {
+            measuredDays++;
+            totalActiveCount += stats.activeCount;
+        }
+    });
+
+    return {
+        hasRecord: measuredDays > 0,
+        measuredDays,
+        totalDaysInMonth: monthDatesList.length,
+        totalActiveCount,
+        totalActiveHours: totalActiveCount * 0.5
+    };
 }
 
 function computeStackMetrics(stackDef) {
@@ -463,7 +671,6 @@ function computeStackMetrics(stackDef) {
         };
     }
 
-    // 최신 유효 슬롯 탐색
     let latestKey = slotKeys[slotKeys.length - 1];
     let latestValidKey = null;
     for (let i = slotKeys.length - 1; i >= 0; i--) {
@@ -524,6 +731,17 @@ function buildMiniTimelineHtml(slotsObj) {
     return `<div class="flex items-center gap-[1.5px] w-full">${bars}</div>`;
 }
 
+function formatDiffBadge(todayHours, prevHours, todayHasData) {
+    if (!todayHasData || prevHours === null) return '';
+    const diff = Number((todayHours - prevHours).toFixed(1));
+    if (diff > 0) {
+        return `<div class="text-[10px] font-bold text-emerald-600 mono mt-0.5">전일비 +${diff.toFixed(1)}h</div>`;
+    } else if (diff < 0) {
+        return `<div class="text-[10px] font-bold text-rose-500 mono mt-0.5">전일비 ${diff.toFixed(1)}h</div>`;
+    }
+    return `<div class="text-[10px] font-semibold text-slate-400 mono mt-0.5">전일과 동일</div>`;
+}
+
 function renderDashboard() {
     const tbody = document.getElementById('plantTableBody');
     tbody.innerHTML = '';
@@ -533,13 +751,30 @@ function renderDashboard() {
     let sumAvg = 0;
     let sumHours = 0;
 
+    let prevMatched = 0;
+    let sumPrevHours = 0;
+
+    let monthMatched = 0;
+    let sumMonthHours = 0;
+
     TARGET_STACKS.forEach(st => {
         const m = computeStackMetrics(st);
+        const pm = computePrevDayMetrics(st);
+        const mm = computeMonthMetrics(st);
+
         if (m.hasData) {
             matchedAll++;
             sumLatest += m.latestNox;
             if (m.avgNox !== null) sumAvg += m.avgNox;
             sumHours += m.activeHours;
+        }
+        if (pm.hasRecord) {
+            prevMatched++;
+            sumPrevHours += pm.activeHours;
+        }
+        if (mm.hasRecord) {
+            monthMatched++;
+            sumMonthHours += mm.totalActiveHours;
         }
 
         if (corpFilter !== 'ALL' && st.corpKey !== corpFilter) return;
@@ -551,18 +786,32 @@ function renderDashboard() {
             ? `${m.minNox.toFixed(2)} ~ ${m.maxNox.toFixed(2)}`
             : '-';
 
+        const prevCellHtml = pm.hasRecord
+            ? `
+                <div class="font-bold text-slate-800 mono">${pm.activeHours.toFixed(1)} h</div>
+                ${formatDiffBadge(m.activeHours, pm.activeHours, m.receivedCount > 0)}
+              `
+            : `<span class="text-slate-300 mono">-</span>`;
+
+        const monthCellHtml = mm.hasRecord
+            ? `
+                <div class="font-extrabold text-indigo-700 mono">${mm.totalActiveHours.toFixed(1)} h</div>
+                <div class="text-[10px] text-indigo-500 mono mt-0.5">${mm.measuredDays}일 누적</div>
+              `
+            : `<span class="text-slate-300 mono">-</span>`;
+
         tr.innerHTML = `
             <td class="py-3 px-4">
                 <div class="font-bold text-slate-900">${st.corpLabel}</div>
                 <div class="text-[11px] text-slate-400 mono">${m.rawCorpName}</div>
             </td>
-            <td class="py-3 px-3 mono">
+            <td class="py-3 px-2.5 mono">
                 <span class="px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-800 font-bold">#${st.stackCode}번</span>
             </td>
-            <td class="py-3 px-3 text-center mono ${m.hasData ? 'text-emerald-700 font-bold' : 'text-slate-400'}">
+            <td class="py-3 px-2.5 text-center mono ${m.hasData ? 'text-emerald-700 font-bold' : 'text-slate-400'}">
                 ${m.latestTime}
             </td>
-            <td class="py-3 px-3 text-right">
+            <td class="py-3 px-2.5 text-right">
                 ${m.hasData ? `
                     <button onclick="openNoxModal('${st.id}')" class="px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 font-extrabold mono transition inline-flex items-center gap-1.5">
                         <span>${m.latestNox.toFixed(2)} ppm</span>
@@ -570,13 +819,13 @@ function renderDashboard() {
                     </button>
                 ` : '<span class="text-slate-400 mono">-</span>'}
             </td>
-            <td class="py-3 px-3 text-right mono font-bold ${m.avgNox !== null ? 'text-sky-700' : 'text-slate-400'}">
-                ${m.avgNox !== null ? m.avgNox.toFixed(2) + ' ppm' : '-'}
+            <td class="py-3 px-2.5 text-right mono">
+                <div class="font-bold ${m.avgNox !== null ? 'text-sky-700' : 'text-slate-400'}">
+                    ${m.avgNox !== null ? m.avgNox.toFixed(2) + ' ppm' : '-'}
+                </div>
+                <div class="text-[10px] text-slate-400 mt-0.5">${rangeStr}</div>
             </td>
-            <td class="py-3 px-3 text-center mono text-slate-600">
-                ${rangeStr}
-            </td>
-            <td class="py-3 px-3 text-right mono text-slate-600">
+            <td class="py-3 px-2.5 text-right mono text-slate-600">
                 ${m.stdNox !== null ? m.stdNox + ' ppm' : '-'}
             </td>
             <td class="py-3 px-3 cursor-pointer" onclick="openNoxModal('${st.id}')">
@@ -587,13 +836,20 @@ function renderDashboard() {
                     <span>23:30</span>
                 </div>
             </td>
-            <td class="py-3 px-3 text-center mono">
-                <span class="px-2.5 py-1 rounded-md ${m.activeHours > 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 font-extrabold' : 'text-slate-400'}">
-                    ${m.activeHours.toFixed(1)} h (${m.activeCount}슬롯)
+            <td class="py-3 px-2.5 text-center mono">
+                <span class="inline-block px-2 py-0.5 rounded-md ${m.activeHours > 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 font-extrabold' : 'text-slate-400'}">
+                    ${m.activeHours.toFixed(1)} h
                 </span>
+                <div class="text-[10px] text-slate-400 mt-0.5">${m.activeCount}슬롯</div>
             </td>
-            <td class="py-3 px-4 text-center">
-                <div class="flex items-center justify-center gap-2">
+            <td class="py-3 px-2.5 text-center">
+                ${prevCellHtml}
+            </td>
+            <td class="py-3 px-2.5 text-center bg-indigo-50/30">
+                ${monthCellHtml}
+            </td>
+            <td class="py-3 px-3 text-center">
+                <div class="flex items-center justify-center gap-1.5">
                     <span class="text-[11px] font-semibold ${m.hasData ? 'text-emerald-700' : 'text-slate-400'}">${m.statusText}</span>
                     <button onclick="openNoxModal('${st.id}')" class="px-2 py-1 rounded bg-white hover:bg-slate-100 text-sky-700 border border-slate-300 text-[11px] font-bold transition">
                         상세
@@ -604,18 +860,38 @@ function renderDashboard() {
         tbody.appendChild(tr);
     });
 
+    // KPI 카드 갱신
     document.getElementById('kpiMatched').textContent = `${matchedAll} / ${TARGET_STACKS.length}`;
     document.getElementById('kpiDateLabel').textContent = selectedDate || '-';
     document.getElementById('kpiAvgLatestNox').textContent = matchedAll ? (sumLatest / matchedAll).toFixed(2) : '0.00';
     document.getElementById('kpiAvgDayNox').textContent = matchedAll ? (sumAvg / matchedAll).toFixed(2) : '0.00';
     document.getElementById('kpiAvgHours').textContent = matchedAll ? (sumHours / matchedAll).toFixed(1) : '0.0';
-    document.getElementById('kpiLastUpdated').textContent = currentDayData?.updatedAtKst ? `갱신 ${currentDayData.updatedAtKst.slice(11, 16)}` : '-';
+    document.getElementById('kpiLastUpdated').textContent = currentDayData?.updatedAtKst ? `최근 갱신: ${currentDayData.updatedAtKst.slice(11, 16)} KST` : '갱신 기록 없음';
+
+    // 전일 KPI & 헤더 서브텍스트
+    document.getElementById('kpiPrevAvgHours').textContent = prevMatched ? (sumPrevHours / prevMatched).toFixed(1) : '-';
+    document.getElementById('kpiPrevDateLabel').textContent = prevDateStr
+        ? `기준일: ${prevDateStr}${prevMatched ? '' : ' (기록 없음)'}`
+        : '기준일: -';
+    document.getElementById('thPrevDateSub').textContent = prevDateStr ? prevDateStr.slice(5) : '-';
+
+    // 월 누적 KPI & 헤더 서브텍스트
+    const monthLabel = selectedMonthKey ? `${selectedMonthKey.slice(0, 4)}-${selectedMonthKey.slice(5, 7)}` : '-';
+    document.getElementById('kpiMonthAvgHours').textContent = monthMatched ? (sumMonthHours / monthMatched).toFixed(1) : '0.0';
+    document.getElementById('kpiMonthMetaLabel').textContent = monthDatesList.length > 0
+        ? `${monthLabel} · ${monthDatesList.length}일 누적 (합계 ${sumMonthHours.toFixed(1)}h)`
+        : `${monthLabel} · 누적 기록 없음`;
+    document.getElementById('thMonthSub').textContent = monthDatesList.length > 0
+        ? `${selectedMonthKey.slice(5)}월 (${monthDatesList.length}일)`
+        : '-';
 }
 
 function openNoxModal(stackId) {
     const st = TARGET_STACKS.find(x => x.id === stackId);
     if (!st) return;
     const m = computeStackMetrics(st);
+    const pm = computePrevDayMetrics(st);
+    const mm = computeMonthMetrics(st);
     const shortDate = selectedDate ? selectedDate.slice(5) : '';
 
     document.getElementById('modalTitle').textContent = `질소산화물(ppm) - ${st.corpLabel} #${st.stackCode}번 배출구`;
@@ -625,6 +901,8 @@ function openNoxModal(stackId) {
     document.getElementById('modalAvgVal').textContent = m.avgNox !== null ? m.avgNox.toFixed(2) : '-';
     document.getElementById('modalStdVal').textContent = m.stdNox !== null ? m.stdNox : '-';
     document.getElementById('modalActiveHours').textContent = `${m.activeHours.toFixed(1)} h (${m.activeCount}/48슬롯)`;
+    document.getElementById('modalPrevHours').textContent = pm.hasRecord ? `${pm.activeHours.toFixed(1)} h (${prevDateStr.slice(5)})` : '기록 없음';
+    document.getElementById('modalMonthHours').textContent = mm.hasRecord ? `${mm.totalActiveHours.toFixed(1)} h (${selectedMonthKey} · ${mm.measuredDays}일)` : '기록 없음';
     document.getElementById('modalSlotSummary').textContent = `누적 수신: ${m.receivedCount} / 48슬롯`;
 
     const ctx = document.getElementById('noxBarChart').getContext('2d');
@@ -722,11 +1000,18 @@ function downloadSelectedCsv() {
         alert('다운로드할 실측 데이터가 없습니다.');
         return;
     }
-    const headers = ['조회일자', '사업장명', '배출구번호', '배출허용기준(ppm)', '실측가동시간(h)', '일평균NOx(ppm)', ...FIXED_48_SLOTS];
+    const headers = [
+        '조회일자', '사업장명', '배출구번호', '배출허용기준(ppm)',
+        '당일실측가동시간(h)', `전일가동시간_${prevDateStr}(h)`,
+        `월누적가동시간_${selectedMonthKey}(h)`, '월누적일수(일)',
+        '일평균NOx(ppm)', ...FIXED_48_SLOTS
+    ];
     const rows = [headers.join(',')];
 
     TARGET_STACKS.forEach(st => {
         const m = computeStackMetrics(st);
+        const pm = computePrevDayMetrics(st);
+        const mm = computeMonthMetrics(st);
         const slotCols = FIXED_48_SLOTS.map(t => {
             const v = m.slotsObj[t]?.nox;
             return (v !== null && v !== undefined) ? Number(v).toFixed(2) : '';
@@ -737,6 +1022,9 @@ function downloadSelectedCsv() {
             st.stackCode,
             m.stdNox ?? '',
             m.activeHours.toFixed(1),
+            pm.hasRecord ? pm.activeHours.toFixed(1) : '',
+            mm.hasRecord ? mm.totalActiveHours.toFixed(1) : '',
+            mm.measuredDays,
             m.avgNox !== null ? m.avgNox.toFixed(2) : '',
             ...slotCols
         ];
@@ -751,6 +1039,47 @@ function downloadSelectedCsv() {
     a.click();
     URL.revokeObjectURL(url);
 }
+
+function downloadMonthlyCsv() {
+    if (!monthDatesList.length) {
+        alert('해당 월에 누적된 실측 데이터가 없습니다.');
+        return;
+    }
+    const headers = [
+        '조회월', '사업장명', '배출구번호', '월누적가동시간(h)', '누적일수(일)',
+        ...monthDatesList.map(d => `${d}(h)`)
+    ];
+    const rows = [headers.join(',')];
+
+    TARGET_STACKS.forEach(st => {
+        const mm = computeMonthMetrics(st);
+        const dayCols = monthDatesList.map(d => {
+            const stats = calcDayOperatingStats(monthDayDataMap[d], st.id);
+            return stats.receivedCount > 0 ? stats.activeHours.toFixed(1) : '';
+        });
+        const line = [
+            selectedMonthKey,
+            `"${st.corpLabel}"`,
+            st.stackCode,
+            mm.hasRecord ? mm.totalActiveHours.toFixed(1) : '',
+            mm.measuredDays,
+            ...dayCols
+        ];
+        rows.push(line.join(','));
+    });
+
+    const blob = new Blob(['\uFEFF' + rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `CleanSYS_TMS_Monthly_${selectedMonthKey}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+window.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeNoxModal();
+});
 
 window.addEventListener('DOMContentLoaded', () => {
     refreshAll();

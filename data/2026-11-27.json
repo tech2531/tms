@@ -1,0 +1,274 @@
+{
+  "date": "2026-11-27",
+  "updatedAtKst": "2026-11-27 01:12:15",
+  "stacks": {
+    "dk-1": {
+      "id": "dk-1",
+      "corpKey": "동국제강",
+      "corpLabel": "동국제강(주)",
+      "rawCorpName": "동국제강㈜",
+      "stackCode": 1,
+      "stdNox": 105,
+      "slots": {
+        "00:00": {
+          "nox": 9.71,
+          "status": "정상가동"
+        }
+      }
+    },
+    "dk-2": {
+      "id": "dk-2",
+      "corpKey": "동국제강",
+      "corpLabel": "동국제강(주)",
+      "rawCorpName": "동국제강㈜",
+      "stackCode": 2,
+      "stdNox": 105,
+      "slots": {
+        "00:00": {
+          "nox": 7.6,
+          "status": "정상가동"
+        }
+      }
+    },
+    "dk-7": {
+      "id": "dk-7",
+      "corpKey": "동국제강",
+      "corpLabel": "동국제강(주)",
+      "rawCorpName": "동국제강㈜",
+      "stackCode": 7,
+      "stdNox": 140,
+      "slots": {
+        "00:00": {
+          "nox": 27.89,
+          "status": "정상가동"
+        }
+      }
+    },
+    "dk-9": {
+      "id": "dk-9",
+      "corpKey": "동국제강",
+      "corpLabel": "동국제강(주)",
+      "rawCorpName": "동국제강㈜",
+      "stackCode": 9,
+      "stdNox": 105,
+      "slots": {
+        "00:00": {
+          "nox": 9.16,
+          "status": "정상가동"
+        }
+      }
+    },
+    "dk-11": {
+      "id": "dk-11",
+      "corpKey": "동국제강",
+      "corpLabel": "동국제강(주)",
+      "rawCorpName": "동국제강㈜",
+      "stackCode": 11,
+      "stdNox": 80.5,
+      "slots": {
+        "00:00": {
+          "nox": 30.39,
+          "status": "정상가동"
+        }
+      }
+    },
+    "hd-3": {
+      "id": "hd-3",
+      "corpKey": "현대제철",
+      "corpLabel": "현대제철(주)",
+      "rawCorpName": "현대제철㈜ 인천공장",
+      "stackCode": 3,
+      "stdNox": 105,
+      "slots": {
+        "00:00": {
+          "nox": 4.79,
+          "status": "정상가동"
+        }
+      }
+    },
+    "hd-4": {
+      "id": "hd-4",
+      "corpKey": "현대제철",
+      "corpLabel": "현대제철(주)",
+      "rawCorpName": "현대제철㈜ 인천공장",
+      "stackCode": 4,
+      "stdNox": 105,
+      "slots": {
+        "00:00": {
+          "nox": 7.83,
+          "status": "정상가동"
+        }
+      }
+    },
+    "hd-5": {
+      "id": "hd-5",
+      "corpKey": "현대제철",
+      "corpLabel": "현대제철(주)",
+      "rawCorpName": "현대제철㈜ 인천공장",
+      "stackCode": 5,
+      "stdNox": 105,
+      "slots": {
+        "00:00": {
+          "nox": 0.0,
+          "status": "정상가동"
+        }
+      }
+    },
+    "hd-6": {
+      "id": "hd-6",
+      "corpKey": "현대제철",
+      "corpLabel": "현대제철(주)",
+      "rawCorpName": "현대제철㈜ 인천공장",
+      "stackCode": 6,
+      "stdNox": 105,
+      "slots": {
+        "00:00": {
+          "nox": 0.0,
+          "status": "정상가동"
+        }
+      }
+    },
+    "hd-7": {
+      "id": "hd-7",
+      "corpKey": "현대제철",
+      "corpLabel": "현대제철(주)",
+      "rawCorpName": "현대제철㈜ 인천공장",
+      "stackCode": 7,
+      "stdNox": 105,
+      "slots": {
+        "00:00": {
+          "nox": 2.11,
+          "status": "정상가동"
+        }
+      }
+    },
+    "hd-10": {
+      "id": "hd-10",
+      "corpKey": "현대제철",
+      "corpLabel": "현대제철(주)",
+      "rawCorpName": "현대제철㈜ 인천공장",
+      "stackCode": 10,
+      "stdNox": 140,
+      "slots": {
+        "00:00": {
+          "nox": 62.19,
+          "status": "정상가동"
+        }
+      }
+    },
+    "hd-11": {
+      "id": "hd-11",
+      "corpKey": "현대제철",
+      "corpLabel": "현대제철(주)",
+      "rawCorpName": "현대제철㈜ 인천공장",
+      "stackCode": 11,
+      "stdNox": 140,
+      "slots": {
+        "00:00": {
+          "nox": 58.86,
+          "status": "정상가동"
+        }
+      }
+    },
+    "hd-12": {
+      "id": "hd-12",
+      "corpKey": "현대제철",
+      "corpLabel": "현대제철(주)",
+      "rawCorpName": "현대제철㈜ 인천공장",
+      "stackCode": 12,
+      "stdNox": 140,
+      "slots": {
+        "00:00": {
+          "nox": null,
+          "status": "측정자료확인중(가동중지)",
+          "raw": "측정자료확인중(가동중지)"
+        }
+      }
+    },
+    "hd-14": {
+      "id": "hd-14",
+      "corpKey": "현대제철",
+      "corpLabel": "현대제철(주)",
+      "rawCorpName": "현대제철㈜ 인천공장",
+      "stackCode": 14,
+      "stdNox": 140,
+      "slots": {
+        "00:00": {
+          "nox": 43.23,
+          "status": "정상가동"
+        }
+      }
+    },
+    "ts-1": {
+      "id": "ts-1",
+      "corpKey": "대한제당",
+      "corpLabel": "대한제당(주)",
+      "rawCorpName": "대한제당",
+      "stackCode": 1,
+      "stdNox": 60,
+      "slots": {
+        "00:00": {
+          "nox": 23.19,
+          "status": "정상가동"
+        }
+      }
+    },
+    "cj-1": {
+      "id": "cj-1",
+      "corpKey": "제일제당",
+      "corpLabel": "씨제이제일제당(주)",
+      "rawCorpName": "씨제이제일제당㈜ 인천1공장",
+      "stackCode": 1,
+      "stdNox": 40,
+      "slots": {
+        "00:00": {
+          "nox": 25.44,
+          "status": "정상가동"
+        }
+      }
+    },
+    "dw-522": {
+      "id": "dw-522",
+      "corpKey": "동화",
+      "corpLabel": "동화기업(주)",
+      "rawCorpName": "동화기업㈜중구",
+      "stackCode": 522,
+      "stdNox": 70,
+      "slots": {
+        "00:00": {
+          "nox": 35.15,
+          "status": "정상가동"
+        }
+      }
+    },
+    "ak-4": {
+      "id": "ak-4",
+      "corpKey": "앰코",
+      "corpLabel": "앰코테크놀로지코리아(주)",
+      "rawCorpName": "앰코테크놀로지코리아㈜송도사업장",
+      "stackCode": 4,
+      "stdNox": 38,
+      "slots": {
+        "00:00": {
+          "nox": 18.33,
+          "status": "정상가동"
+        }
+      }
+    },
+    "ak-5": {
+      "id": "ak-5",
+      "corpKey": "앰코",
+      "corpLabel": "앰코테크놀로지코리아(주)",
+      "rawCorpName": "앰코테크놀로지코리아㈜송도사업장",
+      "stackCode": 5,
+      "stdNox": 40,
+      "slots": {
+        "00:00": {
+          "nox": null,
+          "status": "측정자료확인중(가동중지)",
+          "raw": "측정자료확인중(가동중지)"
+        }
+      }
+    }
+  }
+}
